@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Data (raw / processed / outputs)
+data/
+outputs/
+*.csv
+*.html
+
+# OS
+.DS_Store
+
