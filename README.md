@@ -4,13 +4,13 @@ This project explores **women’s volleyball match and player statistics** using
 
 The goal is to extract, normalize, and analyze **team- and player-level performance across sets**, enabling deeper analytical questions such as:
 
-- How attack efficiency changes set by set  
-- Which players maintain performance consistency  
-- How teams perform in long (5-set) matches  
-- Error distribution across teams and sets  
+- How attack efficiency changes set by set
+- Which players maintain performance consistency
+- How teams perform in long (5-set) matches
+- Error distribution across teams and sets
 
 > ⚠️ This repository currently contains **analysis code only**.  
-> Raw match data and outputs are intentionally excluded.
+> Raw match data and generated outputs are intentionally excluded.
 
 ---
 
@@ -27,21 +27,22 @@ wbw_scraper/
 │   └── smoke_test.py             # Lightweight sanity checks
 ├── .gitignore
 └── README.md
+
 🔍 What This Project Does
 Data Pipeline Overview
-Extract
+1. Extract
 
 Parses rendered HTML match pages
 
 Collects team and player statistics across all sets
 
-Normalize
+2. Normalize
 
 Converts wide / inconsistent tables into tidy datasets
 
 Standardizes team codes and stat labels
 
-Analyze
+3. Analyze
 
 Produces summaries such as:
 
@@ -52,26 +53,28 @@ Team performance per set
 Attack efficiency rankings
 
 📊 Example Analyses (Generated Locally)
+
 Top scorers by total points
 
 Team performance by set (attack / block / serve / errors)
 
 Attack efficiency leaders
 
-Outputs (CSV, plots) are generated locally and are not committed.
+Outputs (CSV files, plots) are generated locally and not committed to the repository.
 
-🧪 Reproducibility
+
+## 🧪 Reproducibility
+
 This project is designed to be reproducible without committing raw data.
 
-Typical workflow:
-
-bash
-Copy code
+```Typical workflow
 python scripts/extract.py
 python scripts/tidy_team_stats.py
 python scripts/tidy_player_stats.py
 python scripts/summary_report.py
+
 🚧 Project Status
+
 ✅ Core extraction & normalization pipeline
 
 ✅ Analytical summaries
@@ -81,6 +84,7 @@ python scripts/summary_report.py
 🚧 Larger multi-match datasets (planned)
 
 ⚖️ Notes on Data Usage
+
 No proprietary or scraped raw data is included
 
 This repository focuses on code, methodology, and analysis logic
@@ -88,5 +92,6 @@ This repository focuses on code, methodology, and analysis logic
 Sample or synthetic datasets may be added later for demonstration
 
 👤 Author
+
 Built by Alaz Kalelioglu
 Software Engineer | Data & Analytics | Python
