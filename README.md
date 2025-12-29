@@ -27,40 +27,41 @@ wbw_scraper/
 │   └── smoke_test.py             # Lightweight sanity checks
 ├── .gitignore
 └── README.md
+```
 
-🔍 What This Project Does
+## 🔍 What This Project Does
 Data Pipeline Overview
-1. Extract
+* 1. Extract
 
-Parses rendered HTML match pages
+> Parses rendered HTML match pages
 
-Collects team and player statistics across all sets
+> Collects team and player statistics across all sets
 
-2. Normalize
+* 2. Normalize
 
 Converts wide / inconsistent tables into tidy datasets
 
 Standardizes team codes and stat labels
 
-3. Analyze
+* 3. Analyze
 
-Produces summaries such as:
+> Produces summaries such as:
 
-Top scorers
+>> Top scorers
 
-Team performance per set
+>> Team performance per set
 
-Attack efficiency rankings
+>> Attack efficiency rankings
 
-📊 Example Analyses (Generated Locally)
+## 📊 Example Analyses (Generated Locally)
 
-Top scorers by total points
+> Top scorers by total points
 
-Team performance by set (attack / block / serve / errors)
+> Team performance by set (attack / block / serve / errors)
 
-Attack efficiency leaders
+> Attack efficiency leaders
 
-Outputs (CSV files, plots) are generated locally and not committed to the repository.
+> Outputs (CSV files, plots) are generated locally and not committed to the repository.
 
 
 ## 🧪 Reproducibility
@@ -72,12 +73,13 @@ python scripts/extract.py
 python scripts/tidy_team_stats.py
 python scripts/tidy_player_stats.py
 python scripts/summary_report.py
+```
 
-🚧 Project Status
+## 🚧 Project Status
 
-✅ Core extraction & normalization pipeline
+>  ✅ Core extraction & normalization pipeline
 
-✅ Analytical summaries
+>  ✅ Analytical summaries
 
 🚧 Visualization & reporting (planned)
 
