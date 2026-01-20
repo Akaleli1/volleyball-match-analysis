@@ -1,30 +1,38 @@
+from pathlib import Path
 import pandas as pd
 
-# Inputs
-PLAYER_TIDY = "player_stats_tidy.csv"
-TEAM_TIDY = "team_stats_tidy.csv"
+# ---- Paths (repo root'a göre) ----
+DATA_DIR = Path("data")
+PROCESSED_DIR = DATA_DIR / "processed"
+OUT_DIR = Path("outputs")
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Outputs
-OUT_TOP_SCORERS = "top_scorers.csv"
-OUT_TEAM_SET_SUMMARY = "team_set_summary.csv"
-OUT_ATTACK_EFF_TOP = "attack_eff_top.csv"
+PLAYER_TIDY = PROCESSED_DIR / "player_stats_tidy.csv"
+TEAM_TIDY = PROCESSED_DIR / "team_stats_tidy.csv"
+
+OUT_TOP_SCORERS = OUT_DIR / "top_scorers.csv"
+OUT_TEAM_SET_SUMMARY = OUT_DIR / "team_set_summary.csv"
+OUT_ATTACK_EFF_TOP = OUT_DIR / "attack_eff_top.csv"
 
 
-def safe_read_csv(path: str) -> pd.DataFrame:
+
+def safe_read_csv(path: Path) -> pd.DataFrame:
     try:
         return pd.read_csv(path)
     except FileNotFoundError:
-        raise SystemExit(f"❌ Bulunamadı: {path}. Önce ilgili scripti çalıştırıp dosyayı üret.")
+        raise SystemExit(
+            f"❌ Bulunamadı: {path}. Önce ilgili scripti çalıştırıp dosyayı üret.\n"
+            f"   (Kontrol: {path.resolve()})"
+        )
 
 
 def main():
     # --- Load ---
     df = safe_read_csv(PLAYER_TIDY)
 
-    # Normalize column names if needed (defensive)
+    # Normalize column names (defensive)
     df.columns = [c.strip() for c in df.columns]
 
-    # Ensure expected columns exist
     expected_cols = {
         "team", "set", "stat",
         "player_no", "player_name", "position",
@@ -56,7 +64,7 @@ def main():
         scoring_all
         .groupby(["team", "player_no", "player_name", "position"], as_index=False)
         .agg(
-            points=("total_abs", "max"),          # total_abs already overall points in scoring table
+            points=("total_abs", "max"),
             attack_pts=("attack_points", "max"),
             block_pts=("block_points", "max"),
             serve_pts=("serve_points", "max"),
@@ -68,13 +76,9 @@ def main():
     print(f"✅ {OUT_TOP_SCORERS} yazıldı | satır: {len(top_scorers)}")
 
     # --- 2) TEAM SET SUMMARY ---
-    # scoring table has attack_pts/block_pts/serve_pts/total_abs by set, but "errors" is often blank.
-    # We'll compute errors from ATTACK table, where errors are reliably present.
-
     scoring_all_sets = df[df["stat"] == "scoring"].copy()
     attack_all_sets = df[df["stat"] == "attack"].copy()
 
-    # Sum scoring components by (team,set)
     team_set_scoring = (
         scoring_all_sets
         .groupby(["team", "set"], as_index=False)
@@ -86,7 +90,6 @@ def main():
         )
     )
 
-    # Sum attack errors by (team,set) -> errors live here
     team_set_errors = (
         attack_all_sets
         .groupby(["team", "set"], as_index=False)
@@ -106,20 +109,14 @@ def main():
     # --- 3) ATTACK EFFICIENCY TOP (All sets, attack table) ---
     attack_all = df[(df["stat"] == "attack") & (df["set"] == "all")].copy()
 
-    # Keep meaningful rows: attempts > 0
     if "attempts" in attack_all.columns:
         attack_all = attack_all[attack_all["attempts"].fillna(0) > 0]
 
-    # Sort by efficiency, then by points
-    attack_eff_top = (
-        attack_all[[
-            "team", "player_no", "player_name", "position",
-            "efficiency_pct", "point", "attempts", "total", "errors"
-        ]]
-        .copy()
-    )
+    attack_eff_top = attack_all[[
+        "team", "player_no", "player_name", "position",
+        "efficiency_pct", "point", "attempts", "total", "errors"
+    ]].copy()
 
-    # Some pages can have efficiency blank; drop those
     attack_eff_top = attack_eff_top.dropna(subset=["efficiency_pct"])
 
     attack_eff_top = attack_eff_top.sort_values(
@@ -128,13 +125,13 @@ def main():
     ).head(50)
 
     attack_eff_top.to_csv(OUT_ATTACK_EFF_TOP, index=False, encoding="utf-8")
-    print(f"✅ {OUT_ATTACK_EFF_TOP} yazıldı | top50")
+    print("✅ attack_eff_top.csv yazıldı | top50")
 
     # --- 4) Quick check: team_stats_tidy exists? ---
-    try:
+    if TEAM_TIDY.exists():
         tdf = pd.read_csv(TEAM_TIDY)
         print(f"ℹ️ {TEAM_TIDY} OK | satır: {len(tdf)}")
-    except FileNotFoundError:
+    else:
         print(f"⚠️ {TEAM_TIDY} yok. (Opsiyonel) team tidy üretmediysen sorun değil.")
 
 

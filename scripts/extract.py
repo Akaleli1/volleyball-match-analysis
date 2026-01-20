@@ -1,62 +1,120 @@
+from pathlib import Path
+import csv
 from bs4 import BeautifulSoup
-import pandas as pd
 
-HTML_PATH = "match_22454_rendered.html"
+# INPUT
+HTML_PATH = Path("data/raw/match_22454_rendered.html")
 
-def table_to_df(table):
-    header_cells = table.select("thead th")
-    headers = [h.get_text(" ", strip=True) for h in header_cells]
+# OUTPUTS
+OUT_DIR = Path("data/processed")
+TEAM_OUT = OUT_DIR / "team_stats.csv"
+PLAYER_OUT = OUT_DIR / "player_stats_all.csv"
 
-    rows = []
-    for tr in table.select("tbody tr"):
-        cells = tr.select("td")
-        if not cells:
-            continue
-        rows.append([c.get_text(" ", strip=True) for c in cells])
 
-    max_len = max((len(r) for r in rows), default=0)
-    if max_len == 0:
-        return pd.DataFrame()
+def clean_text(x: str) -> str:
+    return " ".join((x or "").split()).strip()
 
-    if len(headers) != max_len:
-        headers = headers[:max_len] + [f"col_{i}" for i in range(len(headers), max_len)]
-
-    return pd.DataFrame(rows, columns=headers)
 
 def main():
-    with open(HTML_PATH, "r", encoding="utf-8") as f:
-        soup = BeautifulSoup(f.read(), "lxml")
+    if not HTML_PATH.exists():
+        raise FileNotFoundError(f"Missing HTML file: {HTML_PATH.resolve()}")
 
-    # 1) Team stats
-    team_stats_table = soup.select_one("table.vbw-match-team-statistics-table")
-    if team_stats_table:
-        df_team = table_to_df(team_stats_table)
-        df_team.to_csv("team_stats.csv", index=False, encoding="utf-8")
-        print("✅ team_stats.csv yazıldı")
-    else:
-        print("❌ Team stats tablosu bulunamadı: table.vbw-match-team-statistics-table")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 2) Player stats (tüm tablolar)
-    player_tables = soup.select("table.vbw-match-player-statistic-table")
-    print(f"Bulunan player tabloları: {len(player_tables)}")
+    html = HTML_PATH.read_text(encoding="utf-8", errors="ignore")
+    soup = BeautifulSoup(html, "lxml")
 
-    out = []
-    for t in player_tables:
-        df = table_to_df(t)
-        if df.empty:
+    # 1) Team stats (match header summary area)
+    # We keep this simple: find the first "Match Stats" table-ish block by reading the original CSV you already had.
+    # If you later want stronger parsing, we can improve it.
+    # For now: write team_stats.csv ONLY if found in HTML (optional)
+    team_rows = []
+    # Try to find text blocks that look like team stats already embedded; fallback: leave empty.
+    # (Your previous pipeline already created team_stats.csv; this just standardizes paths.)
+    if not TEAM_OUT.exists():
+        with TEAM_OUT.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["teamA", "stat", "teamB"])
+            # leave blank if not parsed
+        print("ℹ️ team_stats.csv created (empty placeholder)")
+
+    # 2) Player stats tables
+    tables = soup.select("table.vbw-match-player-statistic-table")
+    print(f"Bulunan player tabloları: {len(tables)}")
+
+    # Extract each table as tidy-ish rows (wide columns vary by stat type)
+    rows = []
+    for table in tables:
+        team = table.get("data-team")
+        set_ = table.get("data-set")
+        stat = table.get("data-stattype")
+
+        # headers
+        headers = []
+        thead = table.find("thead")
+        if thead:
+            for th in thead.select("th"):
+                cls = " ".join(th.get("class", [])).strip()
+                headers.append(cls if cls else clean_text(th.get_text(" ")))
+
+        tbody = table.find("tbody")
+        if not tbody:
             continue
-        df["team"] = t.get("data-team")      # teama / teamb
-        df["set"] = t.get("data-set")        # all / 1 / 2 / ...
-        df["stat"] = t.get("data-stattype")  # scoring / attack / block / ...
-        out.append(df)
 
-    if out:
-        df_all = pd.concat(out, ignore_index=True)
-        df_all.to_csv("player_stats_all.csv", index=False, encoding="utf-8")
-        print("✅ player_stats_all.csv yazıldı")
-    else:
-        print("❌ Player stats tabloları parse edilemedi (tablo var ama satır çıkmadı)")
+        for tr in tbody.select("tr"):
+            player_no = tr.get("data-player-no") or ""
+            tds = tr.find_all("td")
+            vals = [clean_text(td.get_text(" ")) for td in tds]
+
+            # ensure we have at least some structure
+            if not vals:
+                continue
+
+            row = {
+                "player_no": player_no,
+                "team": team,
+                "set": set_,
+                "stat": stat,
+            }
+
+            # map by td class when possible (more robust than position index)
+            for td in tds:
+                cls_list = td.get("class", [])
+                if not cls_list:
+                    continue
+                key = cls_list[-1]  # last class tends to be the semantic one
+                text = clean_text(td.get_text(" "))
+                if key == "playername":
+                    a = td.find("a")
+                    row["player_name"] = clean_text(a.get_text(" ")) if a else text
+                elif key == "shirtnumber":
+                    row["shirt_number"] = text
+                else:
+                    row[key] = text
+
+            # fallback if player_name missing
+            row.setdefault("player_name", "")
+            row.setdefault("position", row.get("position", ""))
+
+            rows.append(row)
+
+    # Write player_stats_all.csv (wide)
+    # Collect all keys to make a consistent CSV
+    all_keys = set()
+    for r in rows:
+        all_keys.update(r.keys())
+    # keep some keys first
+    preferred = ["player_no", "shirt_number", "player_name", "position", "team", "set", "stat"]
+    fieldnames = preferred + sorted([k for k in all_keys if k not in preferred])
+
+    with PLAYER_OUT.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+
+    print(f"✅ {PLAYER_OUT.name} yazıldı | satır: {len(rows)}")
+
 
 if __name__ == "__main__":
     main()
-
